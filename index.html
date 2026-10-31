@@ -2807,29 +2807,6 @@ document.addEventListener('DOMContentLoaded',()=>{const ui=document.querySelecto
 #jluRelatedMount #relatedResults{display:grid!important;grid-template-columns:1fr;gap:10px;max-height:58vh;overflow:auto;margin-top:12px}
 #jluRelatedMount .related-video{cursor:pointer}
 </style>
-        <script id="jawra-startup-welcome-voice">
-(function(){
-  const welcomeText = 'হ্যালো বস, কেমন আছো? তুমি যদি ব্যস্ত থাকো তাহলে ইমোজি আইকনে চাপ দিয়ে আমায় শুধু বলো কী করতে হবে, বাকিটা আমি দেখে নিবো বস।';
-  let welcomeSpoken = false;
-  function speakWelcome(){
-    if(welcomeSpoken || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
-    welcomeSpoken = true;
-    try {
-      const utterance = new SpeechSynthesisUtterance(welcomeText);
-      utterance.lang = 'bn-BD'; utterance.rate = 0.94; utterance.pitch = 1.12;
-      const voices = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
-      const v = voices.find(x => /^bn[-_]/i.test(x.lang)) || voices.find(x => /bengali|bangla/i.test((x.name||'')+' '+(x.lang||'')));
-      if(v) utterance.voice = v;
-      speechSynthesis.speak(utterance);
-    } catch(e) { welcomeSpoken = false; }
-  }
-  window.addEventListener('load', function(){ setTimeout(speakWelcome, 2700); }, {once:true});
-  // If autoplay is blocked, the first user gesture retries the welcome voice once.
-  function firstGesture(){ if(!welcomeSpoken) speakWelcome(); window.removeEventListener('pointerdown', firstGesture, true); window.removeEventListener('touchstart', firstGesture, true); }
-  window.addEventListener('pointerdown', firstGesture, true);
-  window.addEventListener('touchstart', firstGesture, {capture:true, passive:true});
-})();
-</script>
         <!-- JAWRA MUSIC integrated search page + Groq voice assistant update -->
         <style id="jawra-integrated-update-style">
 #jawraSearchPage,#jawraAISettings{display:none;position:fixed;inset:0;z-index:22000;background:#070707;color:#f7ffff;overflow-y:auto;padding:16px;box-sizing:border-box}
@@ -2896,11 +2873,111 @@ document.addEventListener('DOMContentLoaded',()=>{const ui=document.querySelecto
  function stopRecognition(){if(restartTimer)clearTimeout(restartTimer);restartTimer=null;try{recognition?.abort()}catch(e){}recognition=null}
  function say(text){if(!enabled)return;const status=$('jawraAiStatus');if(status)status.classList.remove('show');if(!('speechSynthesis'in window)){listen(400);return}try{speechSynthesis.cancel();speaking=true;$('floatingPlayPause')?.classList.add('ai-speaking');const u=new SpeechSynthesisUtterance(text);u.lang=localStorage.getItem(VOICE)||'bn-BD';u.rate=.96;u.pitch=1.06;const voices=speechSynthesis.getVoices();const v=voices.find(x=>x.lang.toLowerCase()===(u.lang||'').toLowerCase())||voices.find(x=>/^bn/i.test(x.lang));if(v)u.voice=v;u.onend=u.onerror=()=>{speaking=false;$('floatingPlayPause')?.classList.remove('ai-speaking');listen(250)};speechSynthesis.speak(u)}catch(e){speaking=false;listen(400)}}
  function listen(delay){if(!enabled||busy||speaking)return;if(restartTimer)clearTimeout(restartTimer);restartTimer=setTimeout(()=>{if(!enabled||busy||speaking)return;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){stopAssistant();return}try{const r=new SR();recognition=r;r.lang=localStorage.getItem(VOICE)||'bn-BD';r.interimResults=false;r.maxAlternatives=1;r.continuous=false;r.onstart=()=>{$('floatingPlayPause')?.classList.add('ai-listening')};r.onresult=e=>{recognition=null;$('floatingPlayPause')?.classList.remove('ai-listening');const q=(e.results?.[0]?.[0]?.transcript||'').trim();if(q)ask(q);else listen(250)};r.onerror=e=>{recognition=null;$('floatingPlayPause')?.classList.remove('ai-listening');if(e.error==='not-allowed'||e.error==='service-not-allowed'){stopAssistant()}else listen(800)};r.onend=()=>{recognition=null;$('floatingPlayPause')?.classList.remove('ai-listening');if(enabled&&!busy&&!speaking)listen(350)};r.start()}catch(e){recognition=null;listen(800)}},delay||250)}
- function execute(action,q){const frame=$('miniPlayer')?.classList.contains('show')?'miniFrame':'ytFrame';switch(action){case'search':$('searchInput').value=q||'';currentMode='search';searchMusic();return 'তোমার কথামতো সার্চ করছি।';case'play':if(currentVideoId){sendPlayerCommand(frame,'playVideo');return 'ভিডিও চালু করার চেষ্টা করছি।'}return 'আগে একটি ভিডিও বেছে নাও।';case'pause':sendPlayerCommand(frame,'pauseVideo');return 'ভিডিও থামানোর চেষ্টা করছি।';case'next':playNextRelated();return 'পরের ভিডিও চালানোর চেষ্টা করছি।';case'home':goHome();return 'হোম পেজ খুলছি।';case'back':if($('playerOverlay')?.classList.contains('show'))closePlayer();else goHome();return 'আগের পেজে ফিরছি।';case'saved':showSaved();return 'সেভ করা ভিডিও খুলছি।';case'popup':openVideoPopup();return 'পপআপ প্লেয়ার খুলছি।';case'rotate':toggleRotate();return 'রোটেট করছি।';case'scroll_down':window.scrollBy({top:Math.round(innerHeight*.75),behavior:'smooth'});return 'নিচে স্ক্রল করছি।';case'scroll_up':window.scrollBy({top:-Math.round(innerHeight*.75),behavior:'smooth'});return 'উপরে স্ক্রল করছি।';default:return ''}}
- async function ask(q){if(busy||!enabled)return;let key='';try{key=localStorage.getItem(KEY)||''}catch(e){}if(!key){stopAssistant();jawraOpenAISettings();return}busy=true;const b=$('floatingPlayPause');b?.classList.add('ai-listening');try{const prompt=localStorage.getItem(PROMPT)||defaultPrompt;const model=localStorage.getItem(MODEL)||'openai/gpt-oss-120b';const schema={type:'object',properties:{action:{type:'string',enum:['chat','search','play','pause','next','home','back','saved','popup','rotate','scroll_down','scroll_up']},query:{type:'string'},reply:{type:'string'}},required:['action','query','reply'],additionalProperties:false};const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model,temperature:.3,max_tokens:300,response_format:{type:'json_schema',json_schema:{name:'jawra_voice_action',strict:true,schema}},messages:[{role:'system',content:prompt+'\nউত্তর অবশ্যই এই JSON schema মেনে দাও। সাধারণ আলাপ হলে action=chat; অ্যাপের কাজ হলে উপযুক্ত action এবং query-তে সার্চের বিষয় লিখবে। reply সংক্ষিপ্ত বাংলা হবে।'},{role:'user',content:q}]})});const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Groq API error');const out=JSON.parse(data.choices?.[0]?.message?.content||'{}');let reply=out.action==='chat'?(out.reply||'আমি শুনছি, বলো।'):(execute(out.action,out.query)||out.reply||'এই কাজটি এখন করা যাচ্ছে না।');busy=false;b?.classList.remove('ai-listening');if(enabled)say(reply)}catch(e){busy=false;b?.classList.remove('ai-listening');if(enabled)say('বস, Groq AI-তে সংযোগ হচ্ছে না। API Key বা মডেল সেটিংস পরীক্ষা করো।')}}
+ async function jawraVoicePlayByTitle(query){
+  const clean=s=>String(s||'').toLocaleLowerCase('bn-BD').replace(/[“”"'`]/g,' ').replace(/[^\u0980-\u09FFa-z0-9\s]/gi,' ').replace(/\s+/g,' ').trim();
+  const q=clean(query);
+  // Prefer a matching title already visible on screen, so the requested thumbnail is used.
+  const cards=[...document.querySelectorAll('.video,.related-video')];
+  let best=null,bestScore=0;
+  for(const card of cards){
+    const title=card.querySelector('.title')?.textContent?.trim()||card.querySelector('.details')?.textContent?.trim()||card.querySelector('[class*=title]')?.textContent?.trim()||'';
+    const t=clean(title); if(!t) continue;
+    let score=(q===t?100:0);
+    const words=q.split(' ').filter(w=>w.length>1);
+    for(const w of words) if(t.includes(w)) score+=w.length>3?3:1;
+    if(t.includes(q)||q.includes(t)) score+=10;
+    if(score>bestScore){bestScore=score;best=card;}
+  }
+  const words=q.split(' ').filter(w=>w.length>1);
+  if(best && bestScore>=Math.max(4,words.length*2)) { best.click(); return true; }
+  // If the target isn't currently visible, search YouTube and autoplay the top embeddable match.
+  const key=typeof API_KEY!=='undefined'?API_KEY:'';
+  if(!key) return false;
+  const url='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&regionCode=BD&relevanceLanguage=bn&videoEmbeddable=true&order=relevance&q='+encodeURIComponent(query)+'&key='+encodeURIComponent(key);
+  const response=await jawraFetch(url); const data=await response.json();
+  if(!response.ok) throw new Error(data.error?.message||'YouTube search failed');
+  const item=(data.items||[]).find(x=>x.id?.videoId&&x.snippet);
+  if(!item) return false;
+  playVideo(item.id.videoId,decodeHtml(item.snippet.title||''),decodeHtml(item.snippet.channelTitle||''),item.snippet.thumbnails?.high?.url||item.snippet.thumbnails?.medium?.url||'');
+  return true;
+ }
+ function execute(action,q){const frame=$('miniPlayer')?.classList.contains('show')?'miniFrame':'ytFrame';switch(action){case'search':$('searchInput').value=q||'';currentMode='search';searchMusic();return 'তোমার কথামতো সার্চ করছি।';case'play':if(q){jawraVoicePlayByTitle(q).then(ok=>{if(!ok&&enabled)say('এই নামে ভিডিও খুঁজে পাইনি। গানের নামটা আরেকবার বলো।')}).catch(()=>{if(enabled)say('ভিডিও খুঁজতে সমস্যা হয়েছে। ইন্টারনেট বা YouTube API পরীক্ষা করো।')});return 'তোমার বলা নামের ভিডিও খুঁজে চালু করার চেষ্টা করছি।'}if(currentVideoId){sendPlayerCommand(frame,'playVideo');return 'ভিডিও চালু করার চেষ্টা করছি।'}return 'কোন গান বা ভিডিও চালাতে হবে, নামটা বলো।';case'pause':sendPlayerCommand(frame,'pauseVideo');return 'ভিডিও থামানোর চেষ্টা করছি।';case'next':playNextRelated();return 'পরের ভিডিও চালানোর চেষ্টা করছি।';case'home':goHome();return 'হোম পেজ খুলছি।';case'back':if($('playerOverlay')?.classList.contains('show'))closePlayer();else goHome();return 'আগের পেজে ফিরছি।';case'saved':showSaved();return 'সেভ করা ভিডিও খুলছি।';case'popup':openVideoPopup();return 'পপআপ প্লেয়ার খুলছি।';case'rotate':toggleRotate();return 'রোটেট করছি।';case'scroll_down':window.scrollBy({top:Math.round(innerHeight*.75),behavior:'smooth'});return 'নিচে স্ক্রল করছি।';case'scroll_up':window.scrollBy({top:-Math.round(innerHeight*.75),behavior:'smooth'});return 'উপরে স্ক্রল করছি।';default:return ''}}
+ async function ask(q){if(busy||!enabled)return;let key='';try{key=localStorage.getItem(KEY)||''}catch(e){}if(!key){stopAssistant();jawraOpenAISettings();return}busy=true;const b=$('floatingPlayPause');b?.classList.add('ai-listening');try{const prompt=localStorage.getItem(PROMPT)||defaultPrompt;const model=localStorage.getItem(MODEL)||'openai/gpt-oss-120b';const schema={type:'object',properties:{action:{type:'string',enum:['chat','search','play','pause','next','home','back','saved','popup','rotate','scroll_down','scroll_up']},query:{type:'string'},reply:{type:'string'}},required:['action','query','reply'],additionalProperties:false};const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model,temperature:.3,max_tokens:300,response_format:{type:'json_schema',json_schema:{name:'jawra_voice_action',strict:true,schema}},messages:[{role:'system',content:prompt+'\nউত্তর অবশ্যই এই JSON schema মেনে দাও। সাধারণ আলাপ হলে action=chat; অ্যাপের কাজ হলে উপযুক্ত action এবং query-তে সার্চের বিষয় লিখবে। ব্যবহারকারী কোনো গানের বা ভিডিওর নাম বলে প্লে কর, চালাও, অথবা থাম্বেলে লেখা গানটা চালাও বললে action=play এবং query-তে শুধু গানের/ভিডিওর নাম দেবে; এটা প্লে করো বলে নাম না দিলে query ফাঁকা রাখবে. reply সংক্ষিপ্ত বাংলা হবে।'},{role:'user',content:q}]})});const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Groq API error');const out=JSON.parse(data.choices?.[0]?.message?.content||'{}');let reply=out.action==='chat'?(out.reply||'আমি শুনছি, বলো।'):(execute(out.action,out.query)||out.reply||'এই কাজটি এখন করা যাচ্ছে না।');busy=false;b?.classList.remove('ai-listening');if(enabled)say(reply)}catch(e){busy=false;b?.classList.remove('ai-listening');if(enabled)say('বস, Groq AI-তে সংযোগ হচ্ছে না। API Key বা মডেল সেটিংস পরীক্ষা করো।')}}
  function stopAssistant(){enabled=false;busy=false;stopRecognition();try{speechSynthesis.cancel()}catch(e){}$('floatingPlayPause')?.classList.remove('ai-active','ai-listening','ai-speaking');const s=$('jawraAiStatus');if(s)s.classList.remove('show')}
- window.startJawraVoiceAssistant=function(){if(enabled){stopAssistant();return}let key='';try{key=localStorage.getItem(KEY)||''}catch(e){}if(!key){jawraOpenAISettings();return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){return}enabled=true;$('floatingPlayPause')?.classList.add('ai-active');say('হ্যালো বস, কেমন আছো? ☺️ বলো, কী করতে হবে?')};
+ window.startJawraVoiceAssistant=function(){if(enabled){stopAssistant();return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){return}enabled=true;$('floatingPlayPause')?.classList.add('ai-active');say('হ্যালো বস, কেমন আছো? ☺️ বলো, কী করতে হবে?')};
  window.jawraStopIntegratedAssistant=stopAssistant;
+})();
+</script>
+        <!-- FINAL FIX: silent on-screen assistant + reliable separate search/settings -->
+        <style id="jawra-final-voice-search-fix">
+  #jawraAiStatus,
+  #jawraAiStatus.show { display:none !important; visibility:hidden !important; opacity:0 !important; }
+  #jawraSearchPage, #jawraAISettings { z-index:30000 !important; }
+  #jawraSearchPage.show, #jawraAISettings.show { display:block !important; }
+  #jawraSearchPage .jawra-separate-search button[aria-label="AI Settings"] { flex:0 0 43px; }
+</style>
+        <script id="jawra-final-voice-search-fix-script">
+(function(){
+  const $ = id => document.getElementById(id);
+  // The header magnifier and bottom magnifier both open the dedicated search screen.
+  window.focusSearch = function(){
+    const page=$('jawraSearchPage');
+    const settings=$('jawraAISettings');
+    if(!page) return;
+    settings?.classList.remove('show');
+    page.classList.add('show');
+    page.setAttribute('aria-hidden','false');
+    const old=$('searchInput'), field=$('jawraPageSearchInput');
+    if(old && field) field.value=old.value;
+    setTimeout(()=>field?.focus(),120);
+  };
+  window.jawraOpenNewSearch=window.focusSearch;
+  window.jawraCloseSearchPage=function(){
+    $('jawraSearchPage')?.classList.remove('show');
+    $('jawraSearchPage')?.setAttribute('aria-hidden','true');
+  };
+  window.jawraOpenAISettings=function(){
+    const page=$('jawraSearchPage'), settings=$('jawraAISettings');
+    if(!settings) return;
+    page?.classList.remove('show');
+    page?.setAttribute('aria-hidden','true');
+    try {
+      $('jawraGroqKeyNew').value=localStorage.getItem('jawraGroqApiKey_v2')||'';
+      $('jawraSystemPromptNew').value=localStorage.getItem('jawraSystemPrompt_v1')||'তুমি JAURA AI, JAWRA MUSIC-এর বাংলা ভয়েস সহকারী। সংক্ষিপ্ত ও স্বাভাবিক বাংলায় উত্তর দেবে। ভিডিও চালাতে বললে action=play এবং query-তে শিরোনাম/গানের নাম দেবে।';
+      $('jawraVoiceModeNew').value=localStorage.getItem('jawraVoiceMode_v1')||'bn-BD';
+      $('jawraGroqModelNew').value=localStorage.getItem('jawraGroqModel_v1')||'openai/gpt-oss-120b';
+    } catch(e) {}
+    settings.classList.add('show');
+    settings.setAttribute('aria-hidden','false');
+  };
+  window.jawraCloseAISettings=function(){
+    $('jawraAISettings')?.classList.remove('show');
+    $('jawraAISettings')?.setAttribute('aria-hidden','true');
+    // Return to the search screen so the settings gear flow remains clear.
+    $('jawraSearchPage')?.classList.add('show');
+    $('jawraSearchPage')?.setAttribute('aria-hidden','false');
+  };
+  // Do not show transcripts, status bubbles, or AI replies as page text.
+  window.jawraAiSay=function(text){
+    const status=$('jawraAiStatus');
+    if(status){status.classList.remove('show');status.style.display='none';status.textContent='';}
+    if(!('speechSynthesis' in window)) return;
+    try{
+      speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(String(text||''));
+      u.lang=localStorage.getItem('jawraVoiceMode_v1')||'bn-BD';
+      u.rate=.96;u.pitch=1.06;
+      const voices=speechSynthesis.getVoices();
+      const v=voices.find(x=>x.lang.toLowerCase()===u.lang.toLowerCase())||voices.find(x=>/^bn/i.test(x.lang));
+      if(v)u.voice=v;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  };
+  // Use the integrated Groq assistant's voice loop; never display speech as page text.
+  const integratedStart=window.startJawraVoiceAssistant;
+  window.startJawraVoiceAssistant=function(){
+    if(typeof integratedStart==='function') integratedStart();
+  };
 })();
 </script>
       </body>
